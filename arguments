@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Module",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main_vicreg",
+            "args": ["--data-dir=/home/mahdi/Downloads/miniImageNet/", "--exp-dir=/home/mahdi/Downloads/experiment/", "--arch=resnet50", "--epochs=100",
+             "--batch-size=512", "--base-lr=0.3"]
+        },
+        
+    ]
+}
+
+Arguments:
+data_dir: /path/to/imagenet
+exp_dir: /path/to/experiment
+log_freq_time: 60
+arch: resnet50
+mlp: 8192-8192-8192
+epochs: 100
+batch_size: 512
+base_lr: 0.3
+wd: 1e-06
+sim_coeff: 25.0
+std_coeff: 25.0
+cov_coeff: 1.0
+num_workers: 10
+device: cuda
+world_size: 1
+local_rank: -1
+dist_url: env://
