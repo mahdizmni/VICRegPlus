@@ -129,10 +129,12 @@ def main(args):
         start_epoch = 0
 
     start_time = last_logging = time.time()
-    scaler = torch.cuda.amp.GradScaler()
+#    scaler = torch.cuda.amp.GradScaler()
     for epoch in range(start_epoch, args.epochs):
 #        sampler.set_epoch(epoch)
-        for step, ((x, y), _) in enumerate(loader, start=epoch * len(loader)):
+#        a = list(enumerate(loader, start=epoch * len(loader)))
+
+        for step, (x, y, d, _) in enumerate(loader, start=epoch * len(loader)):
 #            x = x.cuda(gpu, non_blocking=True)
 #            y = y.cuda(gpu, non_blocking=True)
 
@@ -140,7 +142,7 @@ def main(args):
 
             optimizer.zero_grad()
             with torch.cuda.amp.autocast():
-                loss = model.forward(x, y)
+                loss = model.forward(x, y, d)
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -196,16 +198,15 @@ class VICReg(nn.Module):
         self.projector = Projector(args, self.embedding)
         self.regress = nn.Linear(2 * 2048, 1)                    # Will tweak it to work with any arch later
 
-    def forward(self, x, y):
+    def forward(self, x, y, d):
         x = self.projector(self.backbone(x))
         y = self.projector(self.backbone(y))
 
         # repr_loss = F.mse_loss(x, y)
 
         # Concat them and do simple linear regression
-        distance = dist_function() 
         pred = self.regress(torch.cat(x, y))
-        repr_loss = F.mse_loss(pred, distance)
+        repr_loss = F.mse_loss(pred, d)
 
 
         x = torch.cat(FullGatherLayer.apply(x), dim=0)

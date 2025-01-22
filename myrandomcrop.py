@@ -25,7 +25,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
             raise ValueError("Crop size must be smaller than the image dimensions.")
 
         # Try generating non-overlapping crops
-        for _ in range(100):  # Limit attempts to avoid infinite loops
+        for _ in range(1000):  # Limit attempts to avoid infinite loops
             crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
             crop2 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
 
