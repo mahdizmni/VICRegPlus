@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main_vicreg.py",
+            "console": "integratedTerminal",
+            "args": ["--data-dir=/home/mahdi/Downloads/miniImageNet/", "--exp-dir=/home/mahdi/Downloads/experiment/", "--arch=resnet50", "--epochs=100", "--batch-size=512", "--base-lr=0.3"]
+        }
+    ]
+}
