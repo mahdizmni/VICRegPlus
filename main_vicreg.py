@@ -84,19 +84,18 @@ def main(args):
     print(args)
     gpu = torch.device(args.device)
 
-#    if args.rank == 0:
-#        args.exp_dir.mkdir(parents=True, exist_ok=True)
-#        stats_file = open(args.exp_dir / "stats.txt", "a", buffering=1)
-#        print(" ".join(sys.argv))
-#        print(" ".join(sys.argv), file=stats_file)
+    if args.rank == 0:
+        args.exp_dir.mkdir(parents=True, exist_ok=True)
+        stats_file = open(args.exp_dir / "stats.txt", "a", buffering=1)
+        print(" ".join(sys.argv))
+        print(" ".join(sys.argv), file=stats_file)
 
     # Augmentations
     transforms = aug.TrainTransform()
 
     # Data loading
     dataset = ImageFolder(args.data_dir / "train", transforms)
-    a = dataset[0]
-#    sampler = torch.utils.data.distributed.DistributedSampler(dataset, shuffle=True)
+    sampler = torch.utils.data.distributed.DistributedSampler(dataset, shuffle=True)
     assert args.batch_size % args.world_size == 0
     per_device_batch_size = args.batch_size // args.world_size
     loader = torch.utils.data.DataLoader(
@@ -104,12 +103,12 @@ def main(args):
         batch_size=per_device_batch_size,
         num_workers=args.num_workers,
         pin_memory=True,
-#        sampler=sampler,
+        sampler=sampler,
     )
 
     model = VICReg(args)
-#   model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-#    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gpu])
+    model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gpu])
     optimizer = LARS(
         model.parameters(),
         lr=0,
@@ -129,14 +128,12 @@ def main(args):
         start_epoch = 0
 
     start_time = last_logging = time.time()
-#    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.cuda.amp.GradScaler()
     for epoch in range(start_epoch, args.epochs):
-#        sampler.set_epoch(epoch)
-#        a = list(enumerate(loader, start=epoch * len(loader)))
-
+        sampler.set_epoch(epoch)
         for step, (x, y, d, _) in enumerate(loader, start=epoch * len(loader)):
-#            x = x.cuda(gpu, non_blocking=True)
-#            y = y.cuda(gpu, non_blocking=True)
+            x = x.cuda(gpu, non_blocking=True)
+            y = y.cuda(gpu, non_blocking=True)
 
             lr = adjust_learning_rate(args, optimizer, loader, step)
 
@@ -146,6 +143,7 @@ def main(args):
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+
 
             current_time = time.time()
             if args.rank == 0 and current_time - last_logging > args.log_freq_time:
@@ -196,7 +194,7 @@ class VICReg(nn.Module):
             zero_init_residual=True
         )
         self.projector = Projector(args, self.embedding)
-        self.regress = nn.Linear(2 * 2048, 1)                    # Will tweak it to work with any arch later
+        self.regress = nn.Linear(2 * 8192, 1)                    # Will tweak the dim to work with any arch later
 
     def forward(self, x, y, d):
         x = self.projector(self.backbone(x))
@@ -205,7 +203,7 @@ class VICReg(nn.Module):
         # repr_loss = F.mse_loss(x, y)
 
         # Concat them and do simple linear regression
-        pred = self.regress(torch.cat(x, y))
+        pred = self.regress(torch.cat((x, y), dim=1))
         repr_loss = F.mse_loss(pred, d)
 
 
@@ -247,8 +245,6 @@ def Projector(args, embedding):
 def exclude_bias_and_norm(p):
     return p.ndim == 1
 
-def dist_function():
-    return
 
 def off_diagonal(x):
     n, m = x.shape
