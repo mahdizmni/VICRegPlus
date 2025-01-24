@@ -78,8 +78,9 @@ class TrainTransform(object):
         )
 
     def __call__(self, sample):
-        crop = RandomResizedCrop(224)
-        v1, v2, c1, c2 = crop(sample)
+        crop = RandomResizedCrop(75)
+        v1, v2, v3, c1, c2, c3 = crop(sample)
         x1 = self.transform(v1)
         x2 = self.transform_prime(v2)
-        return x1, x2, c1, c2
+        x3 = self.transform(v3)                     # TODO: Experiment with different transforms
+        return x1, x2, x3, c1, c2, c3

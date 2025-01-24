@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "main_vicreg.py",
             "console": "integratedTerminal",
-            "args": ["--data-dir=/home/mahdi/Downloads/miniImageNet/", "--exp-dir=/home/mahdi/Downloads/experiment/", "--arch=resnet50", "--epochs=100", "--batch-size=512", "--base-lr=0.3"]
+            "args": ["--data-dir=/home/mahdi/Downloads/imagenet100/", "--exp-dir=/home/mahdi/Downloads/experiment/", "--arch=resnet50", "--epochs=100", "--batch-size=2", "--base-lr=0.3"]
         }
     ]
 }

@@ -19,6 +19,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         Generate two non-overlapping crops and return the centers of each crop.
         """
         img_height, img_width = image_tensor.shape[1], image_tensor.shape[2]
+
         crop_height, crop_width = crop_size
 
         if crop_height > img_height or crop_width > img_width:
@@ -43,26 +44,35 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         crop1_center = ((crop1[0] + crop1[2]) // 2, (crop1[1] + crop1[3]) // 2)
         crop2_center = ((crop2[0] + crop2[2]) // 2, (crop2[1] + crop2[3]) // 2)
 
+        # A third interpolative crop        
+        crop3_center = ((crop1_center[0] + crop2_center[0]) // 2, (crop1_center[1] + crop2_center[1]) // 2)
+
+        x = crop3_center[0] - crop_width // 2
+        y = crop3_center[1] - crop_height // 2
+        crop3 = x, y, x + crop_width, y + crop_height
+
         # Crop the image tensor
         crop1_tensor = image_tensor[:, crop1[1]:crop1[3], crop1[0]:crop1[2]]
         crop2_tensor = image_tensor[:, crop2[1]:crop2[3], crop2[0]:crop2[2]]
+        crop3_tensor = image_tensor[:, crop3[1]:crop3[3], crop3[0]:crop3[2]]
 
-        return crop1_center, crop2_center, crop1_tensor, crop2_tensor
+        return crop1_center, crop2_center, crop3_center, crop1_tensor, crop2_tensor, crop3_tensor
 
     def __call__(self, img):
         # Convert image to tensor
         img_tensor = F.to_tensor(img)
 
         # Apply RandomResizedCrop to one view
-        crop1_center, crop2_center, crop1_tensor, crop2_tensor = self.random_non_overlapping_crops(img_tensor, self.size)
-
-        # Apply the transformation to the crops
+        crop1_center, crop2_center, crop3_center, crop1_tensor, crop2_tensor, crop3_tensor = self.random_non_overlapping_crops(img_tensor, self.size)
+       # ? Apply the transformation to the crops / Is this even necessary?
         crop1_tensor = F.resize(crop1_tensor, self.size, interpolation=self.interpolation)
         crop2_tensor = F.resize(crop2_tensor, self.size, interpolation=self.interpolation)
+        crop3_tensor = F.resize(crop3_tensor, self.size, interpolation=self.interpolation)
 
         # Convert cropped tensors back to images (optional)
         crop1_image = F.to_pil_image(crop1_tensor)
         crop2_image = F.to_pil_image(crop2_tensor)
+        crop3_image = F.to_pil_image(crop3_tensor)
 
         # Return the two cropped images and their centers
-        return crop1_image, crop2_image, crop1_center, crop2_center
+        return crop1_image, crop2_image, crop3_image, crop1_center, crop2_center, crop3_center

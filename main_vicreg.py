@@ -131,15 +131,16 @@ def main(args):
     scaler = torch.cuda.amp.GradScaler()
     for epoch in range(start_epoch, args.epochs):
         sampler.set_epoch(epoch)
-        for step, (x, y, d, _) in enumerate(loader, start=epoch * len(loader)):
+        for step, (x, y, z, _) in enumerate(loader, start=epoch * len(loader)):
             x = x.cuda(gpu, non_blocking=True)
             y = y.cuda(gpu, non_blocking=True)
 
             lr = adjust_learning_rate(args, optimizer, loader, step)
 
             optimizer.zero_grad()
+
             with torch.cuda.amp.autocast():
-                loss = model.forward(x, y, d)
+                loss = model.forward(x, y, z)
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -196,31 +197,37 @@ class VICReg(nn.Module):
         self.projector = Projector(args, self.embedding)
         self.regress = nn.Linear(2 * 8192, 1)                    # Will tweak the dim to work with any arch later
 
-    def forward(self, x, y, d):
+    def forward(self, x, y, z):
         x = self.projector(self.backbone(x))
         y = self.projector(self.backbone(y))
+        z = self.projector(self.backbone(z))
 
-        # repr_loss = F.mse_loss(x, y)
-
-        # Concat them and do simple linear regression
-        pred = self.regress(torch.cat((x, y), dim=1))
-        repr_loss = F.mse_loss(pred, d)
-
+        # Transitive Invariance
+        repr_loss = F.mse_loss(x, z) + F.mse_loss(z, y)
 
         x = torch.cat(FullGatherLayer.apply(x), dim=0)
         y = torch.cat(FullGatherLayer.apply(y), dim=0)
+        z = torch.cat(FullGatherLayer.apply(z), dim=0)
+
         x = x - x.mean(dim=0)
         y = y - y.mean(dim=0)
+        z = z - z.mean(dim=0)
 
         std_x = torch.sqrt(x.var(dim=0) + 0.0001)
         std_y = torch.sqrt(y.var(dim=0) + 0.0001)
-        std_loss = torch.mean(F.relu(1 - std_x)) / 2 + torch.mean(F.relu(1 - std_y)) / 2
+        std_z = torch.sqrt(z.var(dim=0) + 0.0001)
+
+        std_loss = torch.mean(F.relu(1 - std_x)) / 2 + torch.mean(F.relu(1 - std_y)) / 2 + torch.mean(F.relu(1 - std_z)) / 2
 
         cov_x = (x.T @ x) / (self.args.batch_size - 1)
         cov_y = (y.T @ y) / (self.args.batch_size - 1)
+        cov_z = (z.T @ z) / (self.args.batch_size - 1)
+
         cov_loss = off_diagonal(cov_x).pow_(2).sum().div(
             self.num_features
-        ) + off_diagonal(cov_y).pow_(2).sum().div(self.num_features)
+        ) + off_diagonal(cov_y).pow_(2).sum().div(self.num_features 
+        ) +  off_diagonal(cov_z).pow_(2).sum().div(self.num_features)
+
 
         loss = (
             self.args.sim_coeff * repr_loss
