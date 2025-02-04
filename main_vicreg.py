@@ -75,6 +75,10 @@ def get_arguments():
     parser.add_argument('--dist-url', default='env://',
                         help='url used to set up distributed training')
 
+    # Overlap
+    parser.add_argument("--overlap", type=float, default=0.0)
+
+
     return parser
 
 
@@ -91,7 +95,7 @@ def main(args):
         print(" ".join(sys.argv), file=stats_file)
 
     # Augmentations
-    transforms = aug.TrainTransform()
+    transforms = aug.TrainTransform(args.overlap)
 
     # Data loading
     dataset = ImageFolder(args.data_dir / "train", transforms)
