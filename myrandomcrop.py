@@ -14,9 +14,10 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         y = random.randint(0, img_height - crop_height)
         return x, y, x + crop_width, y + crop_height
 
-    def random_non_overlapping_crops(self, image_tensor, crop_size):
+    def random_overlapping_crops(self, image_tensor, crop_size, m):
         """
-        Generate two non-overlapping crops and return the centers of each crop.
+        Generate two %m overlapping crops and return the centers of each crop.
+        Note: m \in [0, 1)
         """
         img_height, img_width = image_tensor.shape[1], image_tensor.shape[2]
         crop_height, crop_width = crop_size
@@ -24,20 +25,72 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         if crop_height > img_height or crop_width > img_width:
             raise ValueError("Crop size must be smaller than the image dimensions.")
 
-        # Try generating non-overlapping crops
-        for _ in range(100):  # Limit attempts to avoid infinite loops
-            crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
-            crop2 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
+
+        if m == 0:
+            # Try generating non-overlapping crops
+            for _ in range(100):  # Limit attempts to avoid infinite loops
+                crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
+                crop2 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
 
             # Check for overlap
-            overlap = (
+                overlap = (
                 max(crop1[0], crop2[0]) < min(crop1[2], crop2[2]) and
                 max(crop1[1], crop2[1]) < min(crop1[3], crop2[3])
-            )
-            if not overlap:
-                break
-        else:
-            raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
+                )
+                if not overlap:
+                    break
+            else:
+                raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
+
+        else: 
+        # Try generating overlapping crops
+            crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
+
+            y = -1
+            for _ in range(100):  # Limit attempts to avoid infinite loops
+                x = random.randint(crop1[0], crop1[2])
+                if x + crop_width > img_width or x == crop1[2]:
+                    continue
+                l = int(crop_width * crop_height * m // (crop1[2] - x))
+                if l > crop_height:
+                    continue
+                
+                y1 = crop1[3] - l
+                y2 = crop1[1] - (crop_height - l) 
+
+                # Checking for valid y
+                if y1 < 0 and y2 < 0:
+                    continue 
+                elif y1 < 0:
+                    y = y2 
+                else:
+                    y = y1
+                if y != -1:
+                    break
+
+                if y1 + crop_height <= img_height and y2 + crop_height <= img_height:
+                    p = random.randint(0, 1)
+                    if p == 0:
+                        y = y1 
+                        break
+                    else:
+                        y = y2
+                        break
+                elif y1 + crop_height <= img_height: 
+                    y = y1 
+                    break
+                elif y2 + crop_height <= img_height: 
+                    y = y2 
+                    break
+                else:
+                    continue
+        
+            if y == -1:
+                raise RuntimeError("Failed to generate overlapping crops after 100 attempts.")
+
+            crop2 = (x, y, x + crop_width, y + crop_height)
+            if crop2[-1] == 0:
+                print(crop2)
 
         # Get the centers of the crops
         crop1_center = ((crop1[0] + crop1[2]) // 2, (crop1[1] + crop1[3]) // 2)
@@ -49,12 +102,12 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
 
         return crop1_center, crop2_center, crop1_tensor, crop2_tensor
 
-    def __call__(self, img):
+    def __call__(self, img, m):
         # Convert image to tensor
         img_tensor = F.to_tensor(img)
 
         # Apply RandomResizedCrop to one view
-        crop1_center, crop2_center, crop1_tensor, crop2_tensor = self.random_non_overlapping_crops(img_tensor, self.size)
+        crop1_center, crop2_center, crop1_tensor, crop2_tensor = self.random_overlapping_crops(img_tensor, self.size, m)
 
         # Apply the transformation to the crops
         crop1_tensor = F.resize(crop1_tensor, self.size, interpolation=self.interpolation)
