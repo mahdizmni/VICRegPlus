@@ -35,7 +35,7 @@ class Solarization(object):
 
 
 class TrainTransform(object):
-    def __init__(self):
+    def __init__(self, m):
         self.transform = transforms.Compose(
             [
                transforms.RandomHorizontalFlip(p=0.5),
@@ -76,10 +76,11 @@ class TrainTransform(object):
                 ),
             ]
         )
+        self.m = m
 
     def __call__(self, sample):
         crop = RandomResizedCrop(224)
-        v1, v2, c1, c2 = crop(sample)
+        v1, v2, c1, c2 = crop(sample, self.m)
         x1 = self.transform(v1)
         x2 = self.transform_prime(v2)
         return x1, x2, c1, c2
