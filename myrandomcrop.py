@@ -59,16 +59,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
                 y2 = crop1[1] - (crop_height - l) 
 
                 # Checking for valid y
-                if y1 < 0 and y2 < 0:
-                    continue 
-                elif y1 < 0:
-                    y = y2 
-                else:
-                    y = y1
-                if y != -1:
-                    break
-
-                if y1 + crop_height <= img_height and y2 + crop_height <= img_height:
+                if y1 + crop_height <= img_height and y2  >= 0:
                     p = random.randint(0, 1)
                     if p == 0:
                         y = y1 
@@ -79,7 +70,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
                 elif y1 + crop_height <= img_height: 
                     y = y1 
                     break
-                elif y2 + crop_height <= img_height: 
+                elif y2 >= 0: 
                     y = y2 
                     break
                 else:
