@@ -79,7 +79,7 @@ class TrainTransform(object):
         self.m = m
 
     def __call__(self, sample):
-        crop = RandomResizedCrop(224)
+        crop = RandomResizedCrop(100)
         v1, v2, c1, c2 = crop(sample, self.m)
         x1 = self.transform(v1)
         x2 = self.transform_prime(v2)
