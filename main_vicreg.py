@@ -112,6 +112,8 @@ def main(args):
 
     model = VICReg(args)
     model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    #! Newly added to handle server errors
+    model = model.cuda(gpu)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gpu])
     optimizer = LARS(
         model.parameters(),
@@ -207,7 +209,7 @@ class VICReg(nn.Module):
         # repr_loss = F.mse_loss(x, y)
 
         # Concat them and do simple linear regression
-        pred = self.regress(torch.cat((x, y), dim=1))
+        pred = self.regress(torch.cat((x, y), dim=1)).squeeze()
         repr_loss = F.mse_loss(pred, d)
 
 
