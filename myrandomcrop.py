@@ -25,9 +25,18 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
         if crop_height > img_height or crop_width > img_width:
             raise ValueError("Crop size must be smaller than the image dimensions.")
 
-
-        if m == 0:
-            # Try generating non-overlapping crops
+        non_overlap = True 
+        # Do random crops when non-overlapping crops are not possible
+        if (crop_height * 2 >= img_height or crop_width * 2 >= img_width) and m == 0:
+            for _ in range(10):
+                crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
+                crop2 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
+                if crop1 != crop2:
+                    non_overlap = False 
+                    break
+            
+        if m == 0 and non_overlap:
+                        # Try generating non-overlapping crops
             for _ in range(100):  # Limit attempts to avoid infinite loops
                 crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
                 crop2 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
@@ -40,9 +49,10 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
                 if not overlap:
                     break
             else:
+                
                 raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
 
-        else: 
+        elif m != 0: 
         # Try generating overlapping crops
             crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
 
@@ -80,8 +90,6 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
                 raise RuntimeError("Failed to generate overlapping crops after 100 attempts.")
 
             crop2 = (x, y, x + crop_width, y + crop_height)
-            if crop2[-1] == 0:
-                print(crop2)
 
         # Get the centers of the crops
         crop1_center = ((crop1[0] + crop1[2]) // 2, (crop1[1] + crop1[3]) // 2)
