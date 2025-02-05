@@ -36,7 +36,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
                     break
             
         if m == 0 and non_overlap:
-                        # Try generating non-overlapping crops
+            # Try generating non-overlapping crops
             for _ in range(100):  # Limit attempts to avoid infinite loops
                 crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
                 crop2 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
@@ -104,8 +104,9 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
     def __call__(self, img, m):
         # Convert image to tensor
         img_tensor = F.to_tensor(img)
+        img_tensor = F.resize(img_tensor, 600, interpolation=self.interpolation)
 
-        # Apply RandomResizedCrop to one view
+        # Apply RandomResizedCrop to get two views
         crop1_center, crop2_center, crop1_tensor, crop2_tensor = self.random_overlapping_crops(img_tensor, self.size, m)
 
         # Apply the transformation to the crops
