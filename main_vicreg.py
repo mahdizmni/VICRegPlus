@@ -174,6 +174,7 @@ def main(args):
         torch.save(model.module.backbone.state_dict(), args.exp_dir / "resnet50.pth")
 
 
+
 def adjust_learning_rate(args, optimizer, loader, step):
     max_steps = args.epochs * len(loader)
     warmup_steps = 10 * len(loader)
@@ -205,12 +206,11 @@ class VICReg(nn.Module):
     def forward(self, x, y, d):
         x = self.projector(self.backbone(x))
         y = self.projector(self.backbone(y))
-
         # repr_loss = F.mse_loss(x, y)
 
         # Concat them and do simple linear regression
         pred = self.regress(torch.cat((x, y), dim=1)).squeeze()
-        repr_loss = F.mse_loss(pred, d)
+        repr_loss = F.mse_loss(pred, d.float())
 
 
         x = torch.cat(FullGatherLayer.apply(x), dim=0)
