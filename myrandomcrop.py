@@ -48,9 +48,11 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
                 )
                 if not overlap:
                     break
-            else:
-                
-                raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
+            else: # Fall back
+                # Pick two corners
+                crop1 = (0, 0, crop_width, crop_height) 
+                crop2 = (img_width - crop_width, img_height - crop_height, img_width, img_height)
+#                raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
 
         elif m != 0: 
         # Try generating overlapping crops
