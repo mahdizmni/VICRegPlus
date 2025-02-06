@@ -210,7 +210,7 @@ class VICReg(nn.Module):
 
         # Concat them and do simple linear regression
         pred = self.regress(torch.cat((x, y), dim=1)).squeeze()
-        repr_loss = F.mse_loss(pred, d.float())
+        repr_loss = F.mse_loss(pred, torch.sigmoid(d))
 
 
         x = torch.cat(FullGatherLayer.apply(x), dim=0)
