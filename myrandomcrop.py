@@ -38,7 +38,10 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
             if not overlap:
                 break
         else:
-            raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
+            # Fall back
+            crop1 = (0, 0, crop_width, crop_height)
+            crop2 = (img_width - crop_width, img_height - crop_height, img_width, img_height)
+#            raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
 
         # Get the centers of the crops
         crop1_center = ((crop1[0] + crop1[2]) // 2, (crop1[1] + crop1[3]) // 2)
@@ -61,7 +64,7 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
     def __call__(self, img):
         # Convert image to tensor
         img_tensor = F.to_tensor(img)
-
+        img_tensor = F.resize(img_tensor, 600, interpolation=self.interpolation)
         # Apply RandomResizedCrop to one view
         crop1_center, crop2_center, crop3_center, crop1_tensor, crop2_tensor, crop3_tensor = self.random_non_overlapping_crops(img_tensor, self.size)
        # ? Apply the transformation to the crops / Is this even necessary?
