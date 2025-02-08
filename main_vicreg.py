@@ -136,6 +136,7 @@ def main(args):
         for step, (x, y, z, _) in enumerate(loader, start=epoch * len(loader)):
             x = x.cuda(gpu, non_blocking=True)
             y = y.cuda(gpu, non_blocking=True)
+            z = z.cuda(gpu, non_blocking=True)
 
             lr = adjust_learning_rate(args, optimizer, loader, step)
 
@@ -197,7 +198,6 @@ class VICReg(nn.Module):
             zero_init_residual=True
         )
         self.projector = Projector(args, self.embedding)
-        self.regress = nn.Linear(2 * 8192, 1)                    # Will tweak the dim to work with any arch later
 
     def forward(self, x, y, z):
         x = self.projector(self.backbone(x))
