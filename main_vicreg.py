@@ -201,16 +201,17 @@ class VICReg(nn.Module):
             zero_init_residual=True
         )
         self.projector = Projector(args, self.embedding)
-        self.regress = nn.Linear(2 * 8192, 1)                    # Will tweak the dim to work with any arch later
+        self.regress = nn.Linear(1, 1)                    # Will tweak the dim to work with any arch later
 
     def forward(self, x, y, d):
         x = self.projector(self.backbone(x))
         y = self.projector(self.backbone(y))
         # repr_loss = F.mse_loss(x, y)
 
-        # Concat them and do simple linear regression
-        pred = self.regress(torch.cat((x, y), dim=1)).squeeze()
-        repr_loss = F.mse_loss(pred, torch.sigmoid(d))
+        # Enforce closer views to be more similar and further ones be less similar.
+        cos = torch.nn.CosineSimilarity()
+        pred = self.regress(cos(x, y).unsqueeze(1))
+        repr_loss = F.mse_loss(pred, 1 - torch.sigmoid(d))
 
 
         x = torch.cat(FullGatherLayer.apply(x), dim=0)
