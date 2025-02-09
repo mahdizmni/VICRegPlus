@@ -210,8 +210,9 @@ class VICReg(nn.Module):
 
         # Enforce closer views to be more similar and further ones be less similar.
         cos = torch.nn.CosineSimilarity()
-        pred = self.regress(cos(x, y).unsqueeze(1))
-        repr_loss = F.mse_loss(pred, 1 - torch.sigmoid(d).unsqueeze(1))
+        pred = torch.sigmoid(self.regress(cos(x, y).unsqueeze(1)))
+        dist = 1 - torch.sigmoid(d).unsqueeze(1)
+        repr_loss = F.kl_div(torch.log(pred), dist, reduction='batchmean')
 
 
         x = torch.cat(FullGatherLayer.apply(x), dim=0)
