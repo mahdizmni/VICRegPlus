@@ -1,81 +1,127 @@
 import torch
+import numbers
 import random
-import torchvision.transforms as transforms
-import torchvision.transforms.functional as F
-from torchvision.transforms import InterpolationMode
+from torchvision.transforms import functional as F
 
-class RandomResizedCrop(transforms.RandomResizedCrop):
-    def __init__(self, size, scale=(0.08, 1.0), ratio=(3.0 / 4.0, 4.0 / 3.0), interpolation=InterpolationMode.BICUBIC):
-        super().__init__(size, scale, ratio, interpolation)
-
-    def get_random_crop(self, img_width, img_height, crop_width, crop_height):
-        """Generate random coordinates for a crop."""
-        x = random.randint(0, img_width - crop_width)
-        y = random.randint(0, img_height - crop_height)
-        return x, y, x + crop_width, y + crop_height
-
-    def random_non_overlapping_crops(self, image_tensor, crop_size):
-        """
-        Generate two non-overlapping crops and return the centers of each crop.
-        """
-        img_height, img_width = image_tensor.shape[1], image_tensor.shape[2]
-
-        crop_height, crop_width = crop_size
-
-        if crop_height > img_height or crop_width > img_width:
-            raise ValueError("Crop size must be smaller than the image dimensions.")
-
-        # Try generating non-overlapping crops
-        for _ in range(100):  # Limit attempts to avoid infinite loops
-            crop1 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
-            crop2 = self.get_random_crop(img_width, img_height, crop_width, crop_height)
-
-            # Check for overlap
-            overlap = (
-                max(crop1[0], crop2[0]) < min(crop1[2], crop2[2]) and
-                max(crop1[1], crop2[1]) < min(crop1[3], crop2[3])
-            )
-            if not overlap:
-                break
+class RandomResizedCrop(torch.nn.Module):
+    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), 
+                 interpolation=F.InterpolationMode.BICUBIC, antialias=None):
+        super().__init__()
+        if isinstance(size, numbers.Number):
+            self.size = (int(size), int(size))
         else:
-            # Fall back
-            crop1 = (0, 0, crop_width, crop_height)
-            crop2 = (img_width - crop_width, img_height - crop_height, img_width, img_height)
-#            raise RuntimeError("Failed to generate non-overlapping crops after 100 attempts.")
+            self.size = size
 
-        # Get the centers of the crops
-        crop1_center = ((crop1[0] + crop1[2]) // 2, (crop1[1] + crop1[3]) // 2)
-        crop2_center = ((crop2[0] + crop2[2]) // 2, (crop2[1] + crop2[3]) // 2)
+        self.scale = scale
+        self.ratio = ratio
+        self.interpolation = interpolation
+        self.antialias = antialias
+        self.c1 = (-1, -1)
+        self.c2 = (-1, -1)
 
-        # A third interpolative crop        
-        crop3_center = ((crop1_center[0] + crop2_center[0]) // 2, (crop1_center[1] + crop2_center[1]) // 2)
 
-        x = crop3_center[0] - crop_width // 2
-        y = crop3_center[1] - crop_height // 2
-        crop3 = x, y, x + crop_width, y + crop_height
+    @staticmethod
+    def get_params(img, scale, ratio):
+        """Get parameters for ``crop`` for a random sized crop."""
+        width, height = F.get_image_size(img)
+        area = height * width
 
-        # Crop the image tensor
-        crop1_tensor = image_tensor[:, crop1[1]:crop1[3], crop1[0]:crop1[2]]
-        crop2_tensor = image_tensor[:, crop2[1]:crop2[3], crop2[0]:crop2[2]]
-        crop3_tensor = image_tensor[:, crop3[1]:crop3[3], crop3[0]:crop3[2]]
+        for _ in range(10):
+            target_area = random.uniform(*scale) * area
+            log_ratio = torch.log(torch.tensor(ratio))
+            aspect_ratio = torch.exp(random.uniform(*log_ratio))
 
-        return crop1_center, crop2_center, crop3_center, crop1_tensor, crop2_tensor, crop3_tensor
+            w = int(torch.round((target_area * aspect_ratio).sqrt()).item())
+            h = int(torch.round((target_area / aspect_ratio).sqrt()).item())
 
-    def __call__(self, img):
-        # Convert image to tensor
-        img_tensor = F.to_tensor(img)
-        img_tensor = F.resize(img_tensor, 600, interpolation=self.interpolation)
-        # Apply RandomResizedCrop to one view
-        crop1_center, crop2_center, crop3_center, crop1_tensor, crop2_tensor, crop3_tensor = self.random_non_overlapping_crops(img_tensor, self.size)
-       # ? Apply the transformation to the crops / Is this even necessary?
-        crop1_tensor = F.resize(crop1_tensor, self.size, interpolation=self.interpolation)
-        crop2_tensor = F.resize(crop2_tensor, self.size, interpolation=self.interpolation)
-        crop3_tensor = F.resize(crop3_tensor, self.size, interpolation=self.interpolation)
+            if 0 < w <= width and 0 < h <= height:
+                top = random.randint(0, height - h)
+                left = random.randint(0, width - w)
+                return top, left, h, w
 
-        # Convert cropped tensors back to images (optional)
-        crop1_image = F.to_pil_image(crop1_tensor)
-        crop2_image = F.to_pil_image(crop2_tensor)
-        crop3_image = F.to_pil_image(crop3_tensor)
+        # Fallback to central crop
+        in_ratio = width / height
+        if in_ratio < min(ratio):
+            w = width
+            h = int(w / min(ratio))
+        elif in_ratio > max(ratio):
+            h = height
+            w = int(h * max(ratio))
+        else:
+            w = width
+            h = height
+        top = (height - h) // 2
+        left = (width - w) // 2
+        return top, left, h, w
 
-        # Return the two cropped images and their centers
-        return crop1_image, crop2_image, crop3_image, crop1_center, crop2_center, crop3_center
+    def inter_view(self, img, scale, ratio):
+        """Get crop parameters centered around (center_x, center_y)."""
+        width, height = F.get_image_size(img)
+        area = height * width
+        center_x = int((self.c1[0] + self.c2[0]) / 2)
+        center_y = int((self.c1[1] + self.c2[1]) / 2)
+
+        for _ in range(10):
+            target_area = random.uniform(*scale) * area
+            log_ratio = torch.log(torch.tensor(ratio))
+            aspect_ratio = torch.exp(random.uniform(*log_ratio))
+
+            w = int(torch.round((target_area * aspect_ratio).sqrt()).item())
+            h = int(torch.round((target_area / aspect_ratio).sqrt()).item())
+
+            left = int(center_x - w / 2)
+            top = int(center_y - h / 2)
+            if 0 < left <= width and 0 < top <= height:
+                return top, left, h, w
+
+        # Fallback to central crop
+        in_ratio = width / height
+        if in_ratio < min(ratio):
+            w = width
+            h = int(w / min(ratio))
+        elif in_ratio > max(ratio):
+            h = height
+            w = int(h * max(ratio))
+        else:
+            w = width
+            h = height
+        top = (height - h) // 2
+        left = (width - w) // 2
+        return top, left, h, w
+
+
+    def forward(self, img):
+        """
+        Args:
+            img (PIL Image or Tensor): Image to be cropped and resized.
+
+        Returns:
+            PIL Image or Tensor: Randomly cropped and resized image.
+        """
+        top, left, height, width = self.get_params(img, self.scale, self.ratio)
+        self.c1 = (int((left + width) / 2), int((top + height) / 2))
+        crop1 = F.resized_crop(
+            img, top, left, height, width, self.size, 
+            interpolation=self.interpolation, antialias=self.antialias
+        ) 
+
+        top, left, height, width = self.get_params(img, self.scale, self.ratio)
+        self.c2 = (int((left + width) / 2), int((top + height) / 2))
+        crop2 = F.resized_crop(
+            img, top, left, height, width, self.size, 
+            interpolation=self.interpolation, antialias=self.antialias
+        ) 
+
+        top, left, height, width = self.inter_view(img, self.scale, self.ratio)
+        crop3 = F.resized_crop(
+            img, top, left, height, width, self.size, 
+            interpolation=self.interpolation, antialias=self.antialias
+        ) 
+
+        return crop1, crop2, crop3
+
+
+    def __repr__(self):
+        interpolate_str = self.interpolation.value if isinstance(self.interpolation, F.InterpolationMode) else self.interpolation
+        return (f"{self.__class__.__name__}(size={self.size}, scale={self.scale}, ratio={self.ratio}, "
+                f"interpolation={interpolate_str}, antialias={self.antialias})")

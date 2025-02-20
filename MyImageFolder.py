@@ -199,7 +199,7 @@ class ImageFolder(torchvision.datasets.folder.DatasetFolder):
         path, target = self.samples[index]
         sample = self.loader(path)
         if self.transform is not None:
-            v1, v2, v3, c1, c2, c3 = self.transform(sample)
+            v1, v2, v3 = self.transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
 #        d = distance(c1, c2)

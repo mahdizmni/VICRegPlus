@@ -7,14 +7,13 @@ from myrandomcrop import RandomResizedCrop
 # Example usage
 image_path = "/home/mahdi/Pictures/test.jpeg"  # Replace with the path to your image
 output_dir = "/home/mahdi/Downloads/"
-crop_size = (200, 200)  # Specify the crop size (height, width)
-crop = RandomResizedCrop(200)
+crop = RandomResizedCrop(224)
 # Load the image and convert to tensor
 image = Image.open(image_path).convert("RGB")
 image_tensor = F.to_tensor(image)  # Convert image to tensor of shape (C, H, W)
 
 # Generate the non-overlapping views and centers
-crop1_center, crop2_center, crop3_center, view1_tensor, view2_tensor, view3_tensor = crop.random_non_overlapping_crops(image_tensor, crop_size)
+view1_tensor, view2_tensor, view3_tensor = crop(image_tensor)
 
 # Convert cropped tensors back to images
 view1_image = F.to_pil_image(view1_tensor)
