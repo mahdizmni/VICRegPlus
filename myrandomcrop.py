@@ -22,10 +22,10 @@ class RandomResizedCrop(torch.nn.Module):
         Softly try to generate non-overlapping views 
         '''
         for _ in range (100):
-            t1, l1, ty1, lw1 = self.get_params(img, scale, ratio)
-            t2, l2, ty2, lw2 = self.get_params(img, scale, ratio)
-            if not (((l1 <= l2 <= lw1) or (l2 <= l1 <= lw2)) and ((t1 <= t2 <= ty1) or (t2 <= t1 <= ty2))):
-                return (t1, l1, ty1, lw1), (t2, l2, ty2, lw2), 1
+            t1, l1, h1, w1 = self.get_params(img, scale, ratio)
+            t2, l2, h2, w2 = self.get_params(img, scale, ratio)
+            if not (((l1 <= l2 <= l1 + w1) or (l2 <= l1 <= l2 + w2)) and ((t1 <= t2 <= t1 + h1) or (t2 <= t1 <= t2 + h2))):
+                return (t1, l1, h1, w1), (t2, l2, h2, w2), 1
         crop1 = self.get_params(img, scale, ratio)
         crop2 = self.get_params(img, scale, ratio)
         return crop1, crop2, 0

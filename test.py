@@ -5,7 +5,7 @@ import torchvision.transforms.functional as F
 from myrandomcrop import RandomResizedCrop
 
 # Example usage
-image_path = "/home/mahdi/Pictures/test.jpeg"  # Replace with the path to your image
+image_path = "/home/mahdi/Pictures/test.png"  # Replace with the path to your image
 output_dir = "/home/mahdi/Downloads/"
 crop = RandomResizedCrop(224)
 # Load the image and convert to tensor
