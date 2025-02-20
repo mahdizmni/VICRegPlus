@@ -129,15 +129,17 @@ def main(args):
     else:
         start_epoch = 0
 
+    # Count the number of overlapping views
+    counter = 0
     start_time = last_logging = time.time()
 #    scaler = torch.cuda.amp.GradScaler()
     for epoch in range(start_epoch, args.epochs):
 #        sampler.set_epoch(epoch)
-        for step, (x, y, z, _) in enumerate(loader, start=epoch * len(loader)):
+        for step, (x, y, z, o, _) in enumerate(loader, start=epoch * len(loader)):
 #            x = x.cuda(gpu, non_blocking=True)
 #            y = y.cuda(gpu, non_blocking=True)
 #            z = z.cuda(gpu, non_blocking=True)
-
+            counter = counter + sum(o)
             lr = adjust_learning_rate(args, optimizer, loader, step)
 
             optimizer.zero_grad()
@@ -170,6 +172,7 @@ def main(args):
             torch.save(state, args.exp_dir / "model.pth")
     if args.rank == 0:
         torch.save(model.module.backbone.state_dict(), args.exp_dir / "resnet50.pth")
+    print(f"\n Number of successful non-overlaps : {o} \n")
 
 
 def adjust_learning_rate(args, optimizer, loader, step):
@@ -204,9 +207,8 @@ class VICReg(nn.Module):
         y = self.projector(self.backbone(y))
         z = self.projector(self.backbone(z))
 
-        p = torch.rand(1)
         # Transitive Invariance
-        repr_loss = p * F.mse_loss(x, z) + (1 - p) * F.mse_loss(z, y)
+        repr_loss = F.mse_loss(x, z) + F.mse_loss(z, y)
 
         x = torch.cat(FullGatherLayer.apply(x), dim=0)
         y = torch.cat(FullGatherLayer.apply(y), dim=0)
