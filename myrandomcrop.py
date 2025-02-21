@@ -100,6 +100,29 @@ class RandomResizedCrop(torch.nn.Module):
         left = (width - w) // 2
         return top, left, h, w
 
+    def fill_img(self, img, crop):
+        y, x, h, w = crop
+        n = h * w 
+        sred = torch.sum(img[0, y:y+h, x:x+w])
+        sgreen = torch.sum(img[1, y:y+h, x:x+w])
+        sblue = torch.sum(img[2, y:y+h, x:x+w])
+
+        R = sred / n
+        G = sgreen / n
+        B = sblue / n
+
+        img[0, y:y+h, x:x+w] = R
+        img[1, y:y+h, x:x+w] = G
+        img[2, y:y+h, x:x+w] = B
+
+        return img 
+
+
+    def inter_crop(self, img, crop1, crop2):
+        im = F.to_tensor(img)
+        im = self.fill_img(self.fill_img(im, crop1), crop2)
+        return F.to_pil_image(im)
+
 
     def forward(self, img):
         """
@@ -109,28 +132,31 @@ class RandomResizedCrop(torch.nn.Module):
         Returns:
             PIL Image or Tensor: Randomly cropped and resized image.
         """
-        crop1, crop2, o = self.non_overlap_crop(img, self.scale, self.ratio)
+        crop1 = self.get_params(img, self.scale, self.ratio)
         top, left, height, width = crop1
         c1 = (int((left + width) / 2), int((top + height) / 2))
-        crop1 = F.resized_crop(
+        view1 = F.resized_crop(
             img, top, left, height, width, self.size, 
             interpolation=self.interpolation, antialias=self.antialias
         ) 
 
+        crop2 = self.get_params(img, self.scale, self.ratio)
         top, left, height, width = crop2
         c2 = (int((left + width) / 2), int((top + height) / 2))
-        crop2 = F.resized_crop(
+        view2 = F.resized_crop(
             img, top, left, height, width, self.size, 
             interpolation=self.interpolation, antialias=self.antialias
         ) 
 
-        top, left, height, width = self.inter_view(img, self.scale, self.ratio, c1, c2)
-        crop3 = F.resized_crop(
-            img, top, left, height, width, self.size, 
+        interview = self.inter_crop(img, crop1, crop2)
+#        top, left, height, width = self.inter_view(img, self.scale, self.ratio, c1, c2)
+        width, height = F.get_image_size(interview)
+        view3 = F.resized_crop(
+            interview, 0, 0, height, width, self.size, 
             interpolation=self.interpolation, antialias=self.antialias
         ) 
-
-        return crop1, crop2, crop3, o
+        o = 0
+        return view1, view2, view3, o
 
 
     def __repr__(self):
